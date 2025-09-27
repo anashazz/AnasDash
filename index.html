@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnasDash - Your personalized sales and team dashboard.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary-blue': '#10B981', // Emerald green for primary color
+                        'secondary-gray': '#F3F4F6',
+                        'card-bg': '#FFFFFF',
+                        'won': '#10B981', // Green
+                        'lost': '#EF4444', // Red
+                        'negotiation': '#F59E0B', // Yellow
+                        'qualified': '#3B82F6', // Blue
+                        'prospecting': '#6B7280', // Gray
+                        'highlight': '#10B981', // Calendar highlight color
+                        'employee-bg': '#E0F7FA', // Light cyan for employee card
+                        'goal-progress': '#81E6D9', // Light Teal for progress bar
+                        'activity-bg': '#FEF3C7', // Very light yellow for logs
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ---------------------------------------------------- */
+        /* --- CUSTOM SCROLLBAR STYLING FOR TABS BAR (Webkit) --- */
+        /* ---------------------------------------------------- */
+        #tabs-navigation-wrapper {
+            overflow-x: auto;
+            white-space: nowrap; /* Prevent tabs from wrapping */
+            -webkit-overflow-scrolling: touch; /* Better mobile scrolling */
+        }
+
+        /* The overall scrollbar container for the tab bar */
+        #tabs-navigation-wrapper::-webkit-scrollbar {
+            height: 12px; /* Thicker scrollbar */
+        }
+
+        /* The scrollbar track (the background) */
+        #tabs-navigation-wrapper::-webkit-scrollbar-track {
+            background: #e0f2f1; /* Very light green track background */
+            border-radius: 6px;
+        }
+
+        /* The scrollbar thumb (the draggable part) */
+        #tabs-navigation-wrapper::-webkit-scrollbar-thumb {
+            background: #10B981; /* Primary color thumb */
+            border-radius: 6px;
+            /* Added box-shadow for a stylized, 'diagonal' texture effect */
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2); 
+            border: 2px solid transparent; 
+            background-clip: padding-box;
+        }
+
+        /* Hover state for the thumb */
+        #tabs-navigation-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #059669; /* Darker green on hover */
+        }
+        
+        /* Fallback for other browsers (Firefox) */
+        #tabs-navigation-wrapper {
+            scrollbar-width: thin;
+            scrollbar-color: #10B981 #e0f2f1;
+        }
+        /* ---------------------------------------------------- */
+
+        /* --- Custom Scrollbar Styling (Applied to Lists) --- */
+        .deal-list-container::-webkit-scrollbar,
+        .employee-list-container::-webkit-scrollbar,
+        .activity-list-container::-webkit-scrollbar {
+            width: 8px; /* Vertical scrollbar width */
+            height: 8px; 
+        }
+
+        .deal-list-container::-webkit-scrollbar-thumb,
+        .employee-list-container::-webkit-scrollbar-thumb,
+        .activity-list-container::-webkit-scrollbar-thumb {
+            background-color: #10B981; /* Use primary color for the thumb */
+            border-radius: 4px;
+            border: 2px solid #F3F4F6; /* Use secondary-gray as border for padding/track visual */
+        }
+        
+        .deal-list-container::-webkit-scrollbar-track,
+        .employee-list-container::-webkit-scrollbar-track,
+        .activity-list-container::-webkit-scrollbar-track {
+            background: #F3F4F6; /* Light gray for the track */
+            border-radius: 4px;
+        }
+        /* ----------------------------------------------------------------- */
+
+
+        /* Base style for the individual tab buttons */
+        .tab-item {
+            cursor: pointer;
+            padding: 1rem 1.5rem; 
+            white-space: nowrap; 
+            transition: all 0.2s ease-in-out;
+            border-bottom: 3px solid transparent; 
+            font-weight: 600;
+            color: #6B7280;
+            flex-shrink: 0; /* Ensures tabs don't compress */
+        }
+        .tab-item:hover {
+            color: #10B981; /* Primary Blue (Emerald) on hover */
+            background-color: #f0fdf4; /* Very light green background */
+        }
+        .tab-item.active {
+            color: #10B981; /* Primary Blue (Emerald) for active */
+            border-color: #10B981; /* Active indicator line */
+            font-weight: 700;
+        }
+
+        /* Calendar Styling */
+        .calendar-day {
+            min-height: 80px;
+            padding: 4px;
+            border-radius: 8px;
+            cursor: default;
+            transition: background-color 0.1s;
+        }
+        .day-label {
+            display: block;
+            font-weight: 600;
+            text-align: right;
+            margin-bottom: 4px;
+        }
+        .deal-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #10B981;
+            margin-right: 4px;
+        }
+        .today {
+            background-color: #E0F2F1; /* Light green for today */
+        }
+        /* Whiteboard Style */
+        #whiteboard-canvas {
+            touch-action: none; /* Prevents scrolling/zooming on touch */
+        }
+    </style>
+</head>
+<body class="bg-secondary-gray min-h-screen font-sans">
+    <div id="app" class="p-4 md:p-8 max-w-7xl mx-auto">
+        
+        <header class="mb-8 p-4 bg-primary-blue rounded-xl shadow-lg text-white">
+            <h1 class="text-3xl font-extrabold mb-1">AnasDash</h1>
+            <p class="text-sm opacity-90">Your personalized sales and team dashboard.</p>
+            <div id="auth-info" class="text-xs mt-2 p-2 bg-white bg-opacity-10 rounded-lg flex justify-between items-center">
+                <span id="user-status-display">Status: Loading...</span>
+                <button id="sign-out-btn" class="hidden px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold text-xs transition">Sign Out</button>
+            </div>
+        </header>
+
+        <div id="auth-panel" class="hidden bg-card-bg p-8 rounded-xl shadow-2xl max-w-md mx-auto my-12">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Sign In or Create Account</h2>
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label for="auth-email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                    <input type="email" id="auth-email" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                </div>
+                <div>
+                    <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="auth-password" required minlength="6" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                </div>
+                
+                <div id="auth-message-box" class="mt-4 p-3 rounded-lg hidden text-sm font-medium" role="alert"></div>
+
+                <div class="flex space-x-4 pt-2">
+                    <button type="button" id="sign-in-btn" class="flex-1 bg-primary-blue text-white py-3 rounded-lg font-bold shadow-md hover:bg-opacity-90 transition duration-150 ease-in-out">
+                        Sign In
+                    </button>
+                    <button type="button" id="sign-up-btn" class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-bold shadow-md hover:bg-gray-700 transition duration-150 ease-in-out">
+                        Sign Up
+                    </button>
+                </div>
+            </form>
+        </div>
+
+
+        <div id="dashboard-content" class="space-y-4 hidden">
+            
+            <div id="tabs-navigation-wrapper" class="flex justify-start items-end border-b border-gray-200 bg-card-bg rounded-t-xl shadow-md relative p-0">
+                <div id="tab-container" class="flex flex-shrink-0">
+                    </div>
+            </div>
+
+            <div id="tab-pipeline" class="tab-content space-y-6">
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-card-bg p-5 rounded-xl shadow-md border border-gray-100 text-center">
+                        <p class="text-xs uppercase font-medium text-gray-500">Total Pipeline Value</p>
+                        <p id="total-value" class="text-2xl font-bold text-gray-900 mt-1">$0</p>
+                    </div>
+                    <div class="bg-card-bg p-5 rounded-xl shadow-md border border-gray-100 text-center">
+                        <p class="text-xs uppercase font-medium text-gray-500">Total Deals</p>
+                        <p id="total-deals" class="text-2xl font-bold text-gray-900 mt-1">0</p>
+                    </div>
+                    <div class="bg-card-bg p-5 rounded-xl shadow-md border border-gray-100 text-center">
+                        <p class="text-xs uppercase font-medium text-gray-500">Won Deals</p>
+                        <p id="won-deals" class="text-2xl font-bold text-won mt-1">0</p>
+                    </div>
+                    <div class="bg-card-bg p-5 rounded-xl shadow-md border border-gray-100 text-center">
+                        <p class="text-xs uppercase font-medium text-gray-500">Lost Deals</p>
+                        <p id="lost-deals" class="text-2xl font-bold text-lost mt-1">0</p>
+                    </div>
+                </div>
+
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Current Pipeline</h2>
+                    <div id="deals-container" class="deal-list-container space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <p id="loading-message" class="text-gray-500">Loading deals...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-goals" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Monthly Goal Tracker</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <div class="bg-secondary-gray p-4 rounded-xl shadow-inner border border-gray-200 h-fit">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-700">Set Target for <span id="goal-month-name"></span></h3>
+                            <form id="goal-form" class="space-y-4">
+                                <div>
+                                    <label for="goal-value" class="block text-sm font-medium text-gray-700">Target Value ($)</label>
+                                    <input type="number" id="goal-value" required min="1" step="any" placeholder="e.g., 50000" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                                </div>
+                                <button type="submit" class="w-full bg-primary-blue text-white py-2 rounded-lg font-bold shadow-md hover:bg-opacity-90 transition duration-150 ease-in-out transform hover:scale-[1.01]">
+                                    Save Monthly Goal
+                                </button>
+                            </form>
+                            <div id="goal-message-box" class="mt-4 p-3 rounded-lg hidden text-sm font-medium" role="alert"></div>
+                        </div>
+                        
+                        <div class="p-4 rounded-xl shadow-lg border border-primary-blue/50 bg-primary-blue/10">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-800">Current Progress</h3>
+                            <div class="space-y-3">
+                                <p class="text-sm font-medium text-gray-700">Target: <span id="goal-target" class="font-bold text-primary-blue">$0</span></p>
+                                <p class="text-sm font-medium text-gray-700">Pipeline Value: <span id="goal-pipeline-value" class="font-bold text-gray-800">$0</span></p>
+                                <p class="text-sm font-medium text-gray-700">Progress: <span id="goal-percent" class="font-bold text-gray-900">0%</span></p>
+                                
+                                <div class="w-full bg-gray-200 rounded-full h-4">
+                                    <div id="progress-bar" class="h-4 rounded-full bg-goal-progress transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-activity" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Team Activity Feed</h2>
+                    <div id="activity-container" class="activity-list-container space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                        <p class="text-gray-500">Awaiting team activity...</p>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="tab-input" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100 max-w-2xl lg:max-w-lg mx-auto">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Input New Deal Details</h2>
+                    <form id="deal-form" class="space-y-4">
+                        
+                        <div>
+                            <label for="deal-name" class="block text-sm font-medium text-gray-700">Deal Name</label>
+                            <input type="text" id="deal-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                        </div>
+
+                        <div>
+                            <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
+                            <input type="text" id="company-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                        </div>
+                        
+                        <div>
+                            <label for="deal-value" class="block text-sm font-medium text-gray-700">Value ($)</label>
+                            <input type="number" id="deal-value" required min="1" step="any" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                        </div>
+
+                        <div>
+                            <label for="close-date" class="block text-sm font-medium text-gray-700">Expected Close Date</label>
+                            <input type="date" id="close-date" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                        </div>
+                        
+                        <div>
+                            <label for="deal-stage" class="block text-sm font-medium text-gray-700">Stage</label>
+                            <select id="deal-stage" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border bg-white focus:border-primary-blue focus:ring-primary-blue transition appearance-none">
+                                <option value="Prospecting">Prospecting</option>
+                                <option value="Qualified">Qualified Lead</option>
+                                <option value="Negotiation">Negotiation</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-primary-blue text-white py-3 rounded-lg font-bold shadow-md hover:bg-opacity-90 transition duration-150 ease-in-out transform hover:scale-[1.01]">
+                            Add Deal
+                        </button>
+                    </form>
+                    <div id="message-box" class="mt-4 p-3 rounded-lg hidden text-sm font-medium" role="alert"></div>
+                </div>
+            </div>
+
+            <div id="tab-calendar" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <button id="prev-month-btn" class="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                        </button>
+                        <h2 id="current-month-year" class="text-2xl font-semibold text-gray-800"></h2>
+                        <button id="next-month-btn" class="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                    
+                    <div id="calendar-grid">
+                        <div class="grid grid-cols-7 text-center font-bold text-sm text-gray-600 mb-2">
+                            <span>Sun</span>
+                            <span>Mon</span>
+                            <span>Tue</span>
+                            <span>Wed</span>
+                            <span>Thu</span>
+                            <span>Fri</span>
+                            <span>Sat</span>
+                        </div>
+                        <div id="calendar-days" class="grid grid-cols-7 gap-1">
+                            </div>
+                    </div>
+                    
+                    <div class="mt-6 pt-4 border-t border-gray-100">
+                        <p class="text-sm font-semibold text-gray-700 flex items-center mb-2">
+                            <span class="deal-indicator mr-2"></span>
+                            Deals Expected to Close
+                        </p>
+                        <div id="calendar-details" class="text-sm text-gray-600 space-y-1 max-h-40 overflow-y-auto">
+                            <p>Click on a highlighted day in the calendar to see details here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-whiteboard" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Collaborative Whiteboard</h2>
+                    
+                    <div class="mb-4 p-3 flex flex-wrap items-center justify-between space-y-2 md:space-y-0 bg-secondary-gray rounded-xl shadow-inner">
+                        <div class="flex items-center space-x-4">
+                            <label for="color-picker" class="text-sm font-medium text-gray-700">Color:</label>
+                            <input type="color" id="color-picker" value="#10B981" class="w-10 h-10 rounded-full border-2 border-gray-300 cursor-pointer">
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <label for="line-width" class="text-sm font-medium text-gray-700">Thickness:</label>
+                            <input type="range" id="line-width" min="1" max="50" value="5" class="w-24 md:w-40 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <button id="clear-canvas-btn" class="px-4 py-2 bg-lost text-white rounded-lg font-bold shadow-md hover:bg-red-600 transition duration-150 ease-in-out transform hover:scale-[1.01]">
+                            Clear Board
+                        </button>
+                    </div>
+                    
+                    <div id="canvas-container" class="relative w-full overflow-hidden border-2 border-gray-300 rounded-lg" style="height: 500px; background-color: #fefefe;">
+                        <canvas id="whiteboard-canvas" class="w-full h-full"></canvas>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Use your mouse or touch screen to draw. The canvas automatically adjusts to your screen size.</p>
+                </div>
+            </div>
+            
+            <div id="tab-employees" class="tab-content hidden">
+                <div class="bg-card-bg p-6 rounded-xl shadow-md border border-gray-100">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Team Employees</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        
+                        <div class="md:col-span-1 bg-secondary-gray p-4 rounded-xl shadow-inner border border-gray-200 h-fit">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-700">Add New Employee</h3>
+                            <form id="employee-form" class="space-y-4">
+                                <div>
+                                    <label for="employee-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                                    <input type="text" id="employee-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                                </div>
+                                
+                                <div>
+                                    <label for="employee-position" class="block text-sm font-medium text-gray-700">Position/Role</label>
+                                    <input type="text" id="employee-position" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 border focus:border-primary-blue focus:ring-primary-blue transition">
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-primary-blue text-white py-2 rounded-lg font-bold shadow-md hover:bg-opacity-90 transition duration-150 ease-in-out">
+                                    Add Employee
+                                </button>
+                            </form>
+                            <div id="employee-message-box" class="mt-4 p-3 rounded-lg hidden text-sm font-medium" role="alert"></div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <h3 class="text-xl font-semibold mb-4 text-gray-700">Current Team Roster</h3>
+                            <div id="employees-container" class="employee-list-container space-y-3 max-h-[400px] md:max-h-[500px] overflow-y-auto pr-2">
+                                <p class="text-gray-500">Loading team roster...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div id="custom-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden flex items-center justify-center z-50 transition-opacity">
+        <div class="bg-card-bg p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-all">
+            <p id="modal-text" class="text-gray-800 mb-6 text-center font-medium"></p>
+            <div class="flex justify-end space-x-3">
+                <button id="modal-cancel" class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                <button id="modal-confirm" class="px-4 py-2 text-white bg-lost rounded-lg hover:bg-red-600 transition font-bold">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // NOTE ON API KEYS/CONFIG: 
+        // In this collaborative environment, the Firebase configuration (which includes the API key, project ID, etc.) 
+        // and the initial authentication token are securely provided as global variables by the platform 
+        // and do not need to be manually hardcoded here.
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // UPDATED: Import createUserWithEmailAndPassword, signInWithEmailAndPassword, and signOut
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc, deleteDoc, setDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set Firebase Log Level to Debug for development visibility
+        setLogLevel('Debug');
+
+        // --- GLOBAL FIREBASE/APP VARIABLES (MANDATORY USE) ---
+        // These global variables are securely injected by the environment to handle setup.
+        
+        // 1. App ID: Used for defining the Firestore path structure (e.g., artifacts/{appId}/...)
+        // Prioritize __app_id, otherwise use the user-provided project ID for fallback.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'anasdash-741';
+        
+        // 2. Firebase Config: MUST use the securely provided __firebase_config to ensure the custom token works.
+        // Hardcoding the config causes the auth/custom-token-mismatch error.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                // Fallback config using the user-specified project ID
+                apiKey: "AIzaSyDGT3vyaoSYfXQ9NmhErEekoRToqRvfCyU", // Placeholder API key
+                authDomain: "anasdash-741.firebaseapp.com",
+                projectId: "anasdash-741",
+                storageBucket: "anasdash-741.appspot.com",
+                messagingSenderId: "123456789012", 
+                appId: "1:123456789012:web:abcdef01234567890abcdef"
+            };
+        
+        // 3. Initial Auth Token: This token is no longer used for the default auth flow but kept for environment compatibility.
+        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --------------------------------------------------------
+
+        let db;
+        let auth;
+        let userId = null;
+        let dealsCollectionRef = null;
+        let employeesCollectionRef = null;
+        let activityCollectionRef = null; // NEW: Activity Log reference
+        let goalsCollectionRef = null;    // NEW: Goals reference
+        
+        let currentDeals = []; 
+        let currentEmployees = []; 
+        let currentActivity = [];
+        let currentGoal = { targetValue: 0 }; // NEW: Store current goal
+
+        // Calendar state variables
+        const today = new Date();
+        let currentMonth = today.getMonth();
+        let currentYear = today.getFullYear();
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        // --- TAB MANAGEMENT VARIABLES (Simplified for scrolling) ---
+        const TAB_DATA = [
+            { name: "Pipeline View", id: "pipeline" },
+            { name: "Goal Tracker", id: "goals" },        // NEW TAB
+            { name: "Activity Feed", id: "activity" },    // NEW TAB
+            { name: "Close Date Calendar", id: "calendar" },
+            { name: "Add New Deal", id: "input" },
+            { name: "Employees", id: "employees" },
+            { name: "Whiteboard", id: "whiteboard" },
+        ];
+        let activeTabId = TAB_DATA[0].id;
+        let resizeTimeout;
+        const tabContainer = document.getElementById('tab-container');
+        // --------------------------------------------------------
+
+        // Utility to display system messages (for Deal Input Form)
+        function showMessage(text, isError = false) {
+            const msgBox = document.getElementById('message-box');
+            msgBox.textContent = text;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-lost', 'bg-green-100', 'text-won');
+            if (isError) {
+                msgBox.classList.add('bg-red-100', 'text-lost');
+            } else {
+                msgBox.classList.add('bg-green-100', 'text-won');
+            }
+            setTimeout(() => {
+                msgBox.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Utility to display system messages (for Employee Input Form)
+        function showEmployeeMessage(text, isError = false) {
+            const msgBox = document.getElementById('employee-message-box');
+            msgBox.textContent = text;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-lost', 'bg-green-100', 'text-won');
+            if (isError) {
+                msgBox.classList.add('bg-red-100', 'text-lost');
+            } else {
+                msgBox.classList.add('bg-green-100', 'text-won');
+            }
+            setTimeout(() => {
+                msgBox.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Utility to display system messages (for Goal Input Form)
+        function showGoalMessage(text, isError = false) {
+            const msgBox = document.getElementById('goal-message-box');
+            msgBox.textContent = text;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-lost', 'bg-green-100', 'text-won');
+            if (isError) {
+                msgBox.classList.add('bg-red-100', 'text-lost');
+            } else {
+                msgBox.classList.add('bg-green-100', 'text-won');
+            }
+            setTimeout(() => {
+                msgBox.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Utility to display system messages (for Auth Panel)
+        function showAuthMessage(text, isError = false) {
+            const msgBox = document.getElementById('auth-message-box');
+            msgBox.textContent = text;
+            msgBox.classList.remove('hidden', 'bg-red-100', 'text-lost', 'bg-green-100', 'text-won');
+            if (isError) {
+                msgBox.classList.add('bg-red-100', 'text-lost');
+            } else {
+                msgBox.classList.add('bg-green-100', 'text-won');
+            }
+            setTimeout(() => {
+                msgBox.classList.add('hidden');
+            }, 5000);
+        }
+
+
+        /**
+         * Custom Promise-based confirmation box to replace window.confirm()
+         */
+        function showCustomConfirmation(message) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('custom-modal');
+                const modalText = document.getElementById('modal-text');
+                const confirmBtn = document.getElementById('modal-confirm');
+                const cancelBtn = document.getElementById('modal-cancel');
+
+                modalText.textContent = message;
+                modal.classList.remove('hidden');
+
+                const handleConfirm = () => {
+                    modal.classList.add('hidden');
+                    cleanupListeners();
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    modal.classList.add('hidden');
+                    cleanupListeners();
+                    resolve(false);
+                };
+
+                const cleanupListeners = () => {
+                    confirmBtn.removeEventListener('click', handleConfirm);
+                    cancelBtn.removeEventListener('click', handleCancel);
+                };
+
+                confirmBtn.addEventListener('click', handleConfirm);
+                cancelBtn.addEventListener('click', handleCancel);
+            });
+        }
+        
+        // Helper function to format the date string (YYYY-MM-DD) for display
+        const formatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            try {
+                const [year, month, day] = dateString.split('-');
+                const date = new Date(year, month - 1, day); 
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                console.error("Date formatting error:", e);
+                return dateString;
+            }
+        };
+        
+        // Helper to format a Firestore Timestamp/Date object
+        const formatActivityTimestamp = (timestamp) => {
+            if (!timestamp) return 'N/A';
+            try {
+                // Check if it's a Firestore Timestamp object
+                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + 
+                       ' on ' + 
+                       date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } catch (e) {
+                console.error("Timestamp formatting error:", e);
+                return 'Invalid Date';
+            }
+        };
+
+        // --- TAB SYSTEM LOGIC ---
+        
+        function renderTabs() {
+            tabContainer.innerHTML = '';
+            TAB_DATA.forEach(tab => {
+                const button = document.createElement('button');
+                button.textContent = tab.name;
+                // 'flex-shrink-0' ensures the tab doesn't compress and forces horizontal scrolling
+                button.className = 'tab-item flex-shrink-0'; 
+                button.setAttribute('data-tab-name', tab.name);
+                button.setAttribute('data-tab-id', tab.id);
+                
+                if (tab.id === activeTabId) {
+                    button.classList.add('active');
+                }
+
+                button.onclick = () => activateTab(tab.id);
+                tabContainer.appendChild(button);
+            });
+            
+            // Activate the first tab after rendering
+            activateTab(activeTabId); 
+        }
+
+        function activateTab(tabId) {
+            activeTabId = tabId;
+            
+            // 1. Update UI for visible tabs
+            document.querySelectorAll('.tab-item').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-tab-id') === tabId) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // 2. Switch content panel
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            // 3. Run content-specific logic
+            if (tabId === 'calendar') {
+                renderCalendarView();
+            }
+            if (tabId === 'whiteboard') {
+                resizeCanvas(); 
+            }
+            if (tabId === 'employees') {
+                renderEmployees(currentEmployees);
+            }
+            if (tabId === 'goals') { // NEW: Goal setup on tab change
+                renderGoalTracker();
+            }
+            if (tabId === 'activity') { // NEW: Activity setup on tab change
+                renderActivityFeed(currentActivity);
+            }
+        }
+        
+        // --- NEW/UPDATED AUTHENTICATION LOGIC ---
+        
+        async function handleSignUp(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+
+            if (!email || !password) {
+                showAuthMessage("Please enter both email and password.", true);
+                return;
+            }
+            
+            try {
+                // Use Firebase Auth to create a new user
+                await createUserWithEmailAndPassword(auth, email, password);
+                showAuthMessage(`Account created and signed in successfully for ${email}!`);
+                // onAuthStateChanged will handle the rest
+            } catch (error) {
+                console.error("Sign up error:", error);
+                // Clean up error message for display
+                const message = error.message.replace('Firebase: ', '').replace(/\(auth.*\)\.?/, '').trim();
+                showAuthMessage(`Sign Up Failed: ${message}`, true);
+            }
+        }
+
+        async function handleSignIn(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+
+            if (!email || !password) {
+                showAuthMessage("Please enter both email and password.", true);
+                return;
+            }
+
+            try {
+                // Use Firebase Auth to sign in an existing user
+                await signInWithEmailAndPassword(auth, email, password);
+                showAuthMessage(`Signed in successfully as ${email}!`);
+                // onAuthStateChanged will handle the rest
+            } catch (error) {
+                console.error("Sign in error:", error);
+                const message = error.message.replace('Firebase: ', '').replace(/\(auth.*\)\.?/, '').trim();
+                showAuthMessage(`Sign In Failed: ${message}`, true);
+            }
+        }
+        
+        async function handleSignOut() {
+             if (!await showCustomConfirmation("Are you sure you want to sign out?")) {
+                return;
+            }
+            try {
+                await signOut(auth);
+                // onAuthStateChanged will handle UI switch
+            } catch (error) {
+                console.error("Sign out error:", error);
+                alert(`Sign Out Failed: ${error.message}`);
+            }
+        }
+
+        function toggleDashboardView(isAuthenticated, userEmail = null) {
+            const authPanel = document.getElementById('auth-panel');
+            const dashboardContent = document.getElementById('dashboard-content');
+            const userStatusDisplay = document.getElementById('user-status-display');
+            const signOutBtn = document.getElementById('sign-out-btn');
+
+            if (isAuthenticated) {
+                authPanel.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+                userStatusDisplay.textContent = `Signed in as: ${userEmail || 'User ID: ' + userId}`;
+                signOutBtn.classList.remove('hidden');
+            } else {
+                authPanel.classList.remove('hidden');
+                dashboardContent.classList.add('hidden');
+                userStatusDisplay.textContent = 'Status: Signed Out';
+                signOutBtn.classList.add('hidden');
+            }
+        }
+
+
+        // 1. INITIALIZE FIREBASE & AUTHENTICATION
+        async function initializeFirebase() {
+            try {
+                // firebaseConfig now correctly uses JSON.parse(__firebase_config)
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Setup the persistent authentication state listener
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        // User is signed in
+                        userId = user.uid;
+                        
+                        // Define collection paths using the mandatory appId and dynamic userId
+                        const basePath = `artifacts/${appId}/users/${userId}`;
+                        dealsCollectionRef = collection(db, `${basePath}/sales_deals`);
+                        employeesCollectionRef = collection(db, `${basePath}/employees`);
+                        activityCollectionRef = collection(db, `${basePath}/activity_log`); 
+                        goalsCollectionRef = collection(db, `${basePath}/goals`);            
+
+                        console.log(`Firestore connected. User ID: ${userId}.`);
+                        setupRealtimeListener();
+                        setupEmployeesListener(); 
+                        setupActivityListener(); 
+                        setupGoalListener();     
+                        
+                        // Switch to dashboard view
+                        toggleDashboardView(true, user.email);
+
+                    } else {
+                        // User is signed out
+                        userId = null;
+                        dealsCollectionRef = null; // Clear collections on sign out
+                        toggleDashboardView(false);
+                        console.log("User signed out. Displaying auth panel.");
+                        
+                        // Clear dashboard content if it was previously visible
+                        document.getElementById('deals-container').innerHTML = '<p class="text-gray-500">Please sign in to view your data.</p>';
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                const loadingMessageEl = document.getElementById('user-status-display');
+                if (loadingMessageEl) {
+                    loadingMessageEl.textContent = `Initialization Error: ${error.message}`;
+                }
+            }
+        }
+
+        // --- ACTIVITY LOGIC (NEW) ---
+
+        /**
+         * Logs an activity to the Firestore log collection.
+         */
+        async function logActivity(action, message) {
+            if (!activityCollectionRef) return;
+
+            const logEntry = {
+                timestamp: new Date(), 
+                action: action, 
+                message: message, 
+                userId: userId, // User ID is used for context
+            };
+
+            try {
+                await addDoc(activityCollectionRef, logEntry);
+            } catch (error) {
+                console.error("Error logging activity:", error);
+            }
+        }
+
+        function setupActivityListener() {
+            if (!activityCollectionRef) return;
+            
+            // Listen to the collection, ordering by timestamp descending
+            onSnapshot(activityCollectionRef, (snapshot) => {
+                currentActivity = [];
+                snapshot.forEach(doc => {
+                    currentActivity.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                // Sort by timestamp (newest first)
+                currentActivity.sort((a, b) => {
+                    // Handle Firestore Timestamp comparison
+                    const timeA = a.timestamp?.seconds || 0;
+                    const timeB = b.timestamp?.seconds || 0;
+                    return timeB - timeA;
+                });
+
+                if (activeTabId === 'activity') {
+                    renderActivityFeed(currentActivity);
+                }
+            }, (error) => {
+                console.error("Error listening to Firestore (Activity):", error);
+            });
+        }
+
+        function renderActivityFeed(activity) {
+            const container = document.getElementById('activity-container');
+            container.innerHTML = '';
+
+            if (activity.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 p-4">No activity logged yet.</p>';
+            }
+
+            activity.forEach(log => {
+                const activityElement = document.createElement('div');
+                activityElement.className = `p-4 rounded-lg shadow-sm border-l-4 border-primary-blue bg-card-bg transition duration-150 ease-in-out hover:shadow-md`;
+                
+                activityElement.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center space-x-3">
+                            <span class="px-2 py-0.5 text-xs font-bold text-gray-800 bg-activity-bg rounded-full border border-yellow-300">
+                                ${log.action}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 flex-shrink-0">${formatActivityTimestamp(log.timestamp)}</p>
+                    </div>
+                    <p class="text-sm text-gray-700 mt-2">${log.message}</p>
+                    <p class="text-xs text-primary-blue mt-1 opacity-75">By User ID: ${log.userId.substring(0, 8)}...</p>
+                `;
+                container.appendChild(activityElement);
+            });
+        }
+
+        // --- GOALS LOGIC (NEW) ---
+
+        // Gets the document path for the current month's goal
+        function getCurrentGoalDocRef() {
+            if (!goalsCollectionRef) return null;
+            const docId = `goal_${today.getFullYear()}_${today.getMonth() + 1}`;
+            return doc(goalsCollectionRef, docId);
+        }
+
+        // Fetches and tracks the current goal
+        function setupGoalListener() {
+            const goalRef = getCurrentGoalDocRef();
+            if (!goalRef) return;
+
+            onSnapshot(goalRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    currentGoal = { targetValue: docSnap.data().targetValue || 0 };
+                } else {
+                    currentGoal = { targetValue: 0 }; 
+                }
+                renderGoalTracker();
+            }, (error) => {
+                console.error("Error listening to Firestore (Goal):", error);
+            });
+        }
+
+        function renderGoalTracker() {
+            // Calculate total pipeline value from current deals
+            const pipelineValue = currentDeals.reduce((sum, deal) => sum + (deal.stage !== 'Lost' ? deal.value : 0), 0); // Exclude lost deals from progress
+            const target = currentGoal.targetValue;
+            const progress = target > 0 ? (pipelineValue / target) : 0;
+            const progressPercent = Math.min(100, Math.round(progress * 100));
+
+            // Update UI
+            document.getElementById('goal-month-name').textContent = monthNames[today.getMonth()];
+            document.getElementById('goal-target').textContent = `$${target.toLocaleString()}`;
+            document.getElementById('goal-pipeline-value').textContent = `$${pipelineValue.toLocaleString()}`;
+            document.getElementById('goal-percent').textContent = `${progressPercent}%`;
+            
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = `${progressPercent}%`;
+            progressBar.classList.remove('bg-goal-progress', 'bg-won');
+            progressBar.classList.add(progressPercent >= 100 ? 'bg-won' : 'bg-goal-progress');
+            
+            // Set input value if a goal exists (for display)
+            const goalInput = document.getElementById('goal-value');
+            if(target > 0) {
+                 goalInput.value = target;
+            }
+        }
+        
+        async function setMonthlyGoal(e) {
+            e.preventDefault();
+            const goalRef = getCurrentGoalDocRef();
+            const valueInput = document.getElementById('goal-value');
+            const targetValue = parseFloat(valueInput.value);
+
+            if (!goalRef || isNaN(targetValue) || targetValue <= 0) {
+                showGoalMessage("Please enter a valid target value greater than $0.", true);
+                return;
+            }
+
+            try {
+                const goalData = {
+                    targetValue: targetValue,
+                    month: today.getMonth() + 1,
+                    year: today.getFullYear()
+                };
+                
+                // Use setDoc to either create or overwrite the goal for the current month
+                await setDoc(goalRef, goalData);
+                showGoalMessage(`Goal of $${targetValue.toLocaleString()} set successfully for ${monthNames[today.getMonth()]}!`);
+                logActivity("Goal Updated", `Monthly goal set to $${targetValue.toLocaleString()} for ${monthNames[today.getMonth()]}.`);
+            } catch (error) {
+                console.error("Error setting goal:", error);
+                showGoalMessage(`Failed to set goal: ${error.message}`, true);
+            }
+        }
+
+
+        // 2. RENDER DEALS & CALCULATE SUMMARY (Pipeline View)
+        function renderDeals(deals) {
+            const container = document.getElementById('deals-container');
+            container.innerHTML = '';
+            
+            if (deals.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No deals added yet. Use the "Add New Deal" tab to start.</p>';
+            }
+
+            let totalValue = 0;
+            let totalDeals = deals.length;
+            let wonDealsCount = 0;
+            let lostDealsCount = 0;
+
+            // Sort deals: Won/Lost at the bottom, then by value (highest first)
+            deals.sort((a, b) => {
+                const stageOrder = { 'Prospecting': 4, 'Qualified': 3, 'Negotiation': 2, 'Won': 1, 'Lost': 0 };
+                if (stageOrder[a.stage] !== stageOrder[b.stage]) {
+                    return stageOrder[b.stage] - stageOrder[a.stage];
+                }
+                return b.value - a.value;
+            });
+
+
+            deals.forEach(deal => {
+                totalValue += deal.value;
+                if (deal.stage === 'Won') wonDealsCount++;
+                if (deal.stage === 'Lost') lostDealsCount++;
+
+                const stageColors = {
+                    'Prospecting': 'bg-prospecting/10 text-prospecting border-prospecting',
+                    'Qualified': 'bg-qualified/10 text-qualified border-qualified',
+                    'Negotiation': 'bg-negotiation/10 text-negotiation border-negotiation',
+                    'Won': 'bg-won/10 text-won border-won',
+                    'Lost': 'bg-lost/10 text-lost border-lost',
+                };
+                
+                const stageDisplay = {
+                    'Prospecting': 'Prospecting',
+                    'Qualified': 'Qualified',
+                    'Negotiation': 'Negotiation',
+                    'Won': 'WON',
+                    'Lost': 'LOST',
+                };
+
+                const formattedDate = formatDate(deal.closeDate);
+
+                const dealElement = document.createElement('div');
+                dealElement.className = `p-4 rounded-lg shadow-sm flex justify-between items-center border ${stageColors[deal.stage]}`;
+                dealElement.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="text-lg font-semibold text-gray-800">${deal.name} <span class="text-sm font-normal text-gray-500">- ${deal.company || 'N/A'}</span></p>
+                        <div class="flex items-center space-x-4 mt-0.5">
+                            <p class="text-sm font-bold">$${deal.value.toLocaleString()}</p>
+                            <p class="text-xs text-gray-500">Close: ${formattedDate}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="px-3 py-1 text-xs font-semibold rounded-full ${stageColors[deal.stage]} border border-opacity-50">
+                            ${stageDisplay[deal.stage]}
+                        </span>
+                        ${deal.stage !== 'Won' && deal.stage !== 'Lost' ? `
+                            <select data-deal-id="${deal.id}" class="update-stage-select bg-white border border-gray-300 rounded-lg p-1.5 text-sm cursor-pointer hover:border-primary-blue transition">
+                                <option value="" disabled selected>Update Stage</option>
+                                <option value="Qualified" ${deal.stage === 'Qualified' ? 'hidden' : ''}>Qualified Lead</option>
+                                <option value="Negotiation" ${deal.stage === 'Negotiation' ? 'hidden' : ''}>Negotiation</option>
+                                <option value="Won">Mark as WON</option>
+                                <option value="Lost">Mark as LOST</option>
+                            </select>
+                        ` : ''}
+                        
+                        <button data-deal-id="${deal.id}" data-deal-name="${deal.name}" class="delete-deal-btn text-gray-400 hover:text-lost transition p-1 rounded-full hover:bg-red-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                                <path d="M3 6h18"></path>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(dealElement);
+            });
+
+            // Update Summary Stats
+            document.getElementById('total-value').textContent = `$${totalValue.toLocaleString()}`;
+            document.getElementById('total-deals').textContent = totalDeals.toString();
+            document.getElementById('won-deals').textContent = wonDealsCount.toString();
+            document.getElementById('lost-deals').textContent = lostDealsCount.toString();
+            
+            // Update Goal Tracker with new pipeline value
+            if (activeTabId === 'goals') {
+                renderGoalTracker();
+            }
+            
+            // Re-attach listeners for stage updates
+            document.querySelectorAll('.update-stage-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const dealId = e.target.getAttribute('data-deal-id');
+                    const newStage = e.target.value;
+                    if (dealId && newStage) {
+                        const currentDeal = currentDeals.find(d => d.id === dealId);
+                        updateDealStage(dealId, currentDeal.stage, newStage, currentDeal.name);
+                    }
+                });
+            });
+
+            // Attach listeners for delete buttons
+            document.querySelectorAll('.delete-deal-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const dealId = e.currentTarget.getAttribute('data-deal-id');
+                    const dealName = e.currentTarget.getAttribute('data-deal-name');
+                    deleteDeal(dealId, dealName);
+                });
+            });
+        }
+
+
+        // --- CALENDAR LOGIC ---
+
+        function renderCalendarView() {
+            document.getElementById('current-month-year').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            const calendarDaysEl = document.getElementById('calendar-days');
+            calendarDaysEl.innerHTML = '';
+            document.getElementById('calendar-details').innerHTML = '<p>Click on a highlighted day in the calendar to see details here.</p>';
+
+            const dealsForMonth = currentDeals
+                .filter(deal => deal.closeDate)
+                .map(deal => {
+                    const [year, month, day] = deal.closeDate.split('-').map(Number);
+                    return {
+                        ...deal,
+                        // Note: month-1 is crucial as JS months are 0-indexed
+                        closeDateObj: new Date(year, month - 1, day) 
+                    };
+                })
+                .filter(deal => 
+                    deal.closeDateObj.getMonth() === currentMonth && 
+                    deal.closeDateObj.getFullYear() === currentYear
+                );
+            
+            const datesWithDeals = dealsForMonth.reduce((acc, deal) => {
+                const day = deal.closeDateObj.getDate();
+                if (!acc[day]) acc[day] = [];
+                acc[day].push(deal);
+                return acc;
+            }, {});
+
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+            // 1. Add blank cells for padding
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'p-2 rounded-lg';
+                calendarDaysEl.appendChild(emptyCell);
+            }
+
+            // 2. Add day cells
+            for (let day = 1; day <= daysInMonth; day++) {
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day p-2 text-sm border border-gray-100 hover:bg-secondary-gray transition';
+                
+                const dayLabel = document.createElement('span');
+                dayLabel.className = 'day-label';
+                dayLabel.textContent = day;
+                
+                cell.appendChild(dayLabel);
+
+                const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+                if (isToday) {
+                    cell.classList.add('today', 'border-primary-blue', 'border-2');
+                }
+                
+                if (datesWithDeals[day]) {
+                    cell.classList.add('bg-highlight/20', 'cursor-pointer');
+                    cell.setAttribute('data-day', day);
+                    
+                    const dealsCount = datesWithDeals[day].length;
+                    
+                    const indicator = document.createElement('div');
+                    indicator.className = 'flex items-center mt-1';
+                    indicator.innerHTML = `<span class="deal-indicator"></span><span class="text-xs font-medium text-highlight">${dealsCount} Deal${dealsCount > 1 ? 's' : ''}</span>`;
+                    
+                    cell.appendChild(indicator);
+                    
+                    cell.addEventListener('click', () => showDayDetails(day, datesWithDeals[day]));
+                }
+
+                calendarDaysEl.appendChild(cell);
+            }
+        }
+
+        function showDayDetails(day, deals) {
+            const detailsEl = document.getElementById('calendar-details');
+            detailsEl.innerHTML = `<h3 class="font-bold mb-2">Deals Closing on ${monthNames[currentMonth]} ${day}, ${currentYear}:</h3>`;
+            
+            const list = document.createElement('ul');
+            list.className = 'space-y-2';
+
+            deals.forEach(deal => {
+                const listItem = document.createElement('li');
+                listItem.className = 'p-3 rounded-lg border border-gray-200 bg-white shadow-sm';
+                
+                const stageColor = deal.stage === 'Won' ? 'text-won' : 
+                                   deal.stage === 'Lost' ? 'text-lost' :
+                                   deal.stage === 'Negotiation' ? 'text-negotiation' : 'text-qualified';
+
+                listItem.innerHTML = `
+                    <p class="font-semibold text-gray-900">${deal.name}</p>
+                    <p class="text-xs text-gray-600">Company: ${deal.company}</p>
+                    <p class="text-xs font-bold ${stageColor}">Stage: ${deal.stage}</p>
+                    <p class="text-xs font-bold text-gray-800">Value: $${deal.value.toLocaleString()}</p>
+                `;
+                list.appendChild(listItem);
+            });
+
+            detailsEl.appendChild(list);
+        }
+
+        // Calendar navigation functions
+        function changeMonth(direction) {
+            currentMonth += direction;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendarView();
+        }
+
+        // 3. SETUP REALTIME LISTENER FOR DEALS
+        function setupRealtimeListener() {
+            if (!dealsCollectionRef) return;
+
+            onSnapshot(dealsCollectionRef, (snapshot) => {
+                currentDeals = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    currentDeals.push({
+                        id: doc.id,
+                        name: data.name,
+                        company: data.company, 
+                        closeDate: data.closeDate, 
+                        value: data.value,
+                        stage: data.stage,
+                    });
+                });
+                renderDeals(currentDeals);
+                
+                if (activeTabId === 'calendar') {
+                    renderCalendarView();
+                }
+                // Also update goal tracker whenever deals change
+                renderGoalTracker(); 
+
+            }, (error) => {
+                console.error("Error listening to Firestore (Deals):", error);
+                showMessage(`Error fetching deals: ${error.message}`, true);
+            });
+        }
+
+        // 4. ADD NEW DEAL
+        async function addDeal(e) {
+            e.preventDefault();
+
+            if (!dealsCollectionRef) {
+                showMessage("User is not signed in or app not fully initialized.", true);
+                return;
+            }
+
+            const nameInput = document.getElementById('deal-name');
+            const companyInput = document.getElementById('company-name');
+            const dateInput = document.getElementById('close-date');
+            const valueInput = document.getElementById('deal-value');
+            const stageInput = document.getElementById('deal-stage');
+
+            const newDeal = {
+                name: nameInput.value.trim(), 
+                company: companyInput.value.trim(), 
+                closeDate: dateInput.value, 
+                value: parseFloat(valueInput.value),
+                stage: stageInput.value,
+            };
+
+            if (newDeal.name === "" || newDeal.company === "" || newDeal.closeDate === "" || isNaN(newDeal.value) || newDeal.value <= 0) {
+                showMessage("Please ensure Deal Name, Company Name, Value, and Close Date are all valid.", true);
+                return;
+            }
+
+            const maxRetries = 3;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    await addDoc(dealsCollectionRef, newDeal);
+                    showMessage(`Deal "${newDeal.name}" for ${newDeal.company} added successfully!`); 
+                    logActivity("Deal Added", `Added new ${newDeal.stage} deal: ${newDeal.name} ($${newDeal.value.toLocaleString()}) for ${newDeal.company}.`);
+                    e.target.reset();
+                    return;
+                } catch (error) {
+                    console.error("Error adding document:", error);
+                    if (i < maxRetries - 1) {
+                        const delay = Math.pow(2, i) * 1000;
+                        console.log(`Retrying in ${delay / 1000} seconds...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        showMessage(`Failed to add deal after ${maxRetries} attempts: ${error.message}`, true);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 5. UPDATE DEAL STAGE
+        async function updateDealStage(dealId, oldStage, newStage, dealName) {
+            if (!dealsCollectionRef || !dealId) return;
+
+            try {
+                const dealRef = doc(db, dealsCollectionRef.path, dealId);
+                await updateDoc(dealRef, {
+                    stage: newStage
+                });
+                showMessage(`Deal stage updated from "${oldStage}" to "${newStage}" for "${dealName}"!`);
+                logActivity("Stage Updated", `Deal "${dealName}" moved from **${oldStage}** to **${newStage}**.`);
+            } catch (error) {
+                console.error("Error updating document:", error);
+                showMessage(`Error updating deal: ${error.message}`, true);
+            }
+        }
+
+        // 6. DELETE DEAL
+        async function deleteDeal(dealId, dealName) {
+            if (!dealsCollectionRef || !dealId) return;
+
+            if (!await showCustomConfirmation(`Are you sure you want to permanently delete the deal: "${dealName}"? This cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const dealRef = doc(db, dealsCollectionRef.path, dealId);
+                await deleteDoc(dealRef);
+                showMessage(`Deal "${dealName}" successfully deleted.`, false);
+                logActivity("Deal Deleted", `Permanently removed deal: ${dealName}.`);
+            } catch (error) {
+                console.error("Error deleting document:", error);
+                showMessage(`Error deleting deal: ${error.message}`, true);
+            }
+        }
+
+        // --- EMPLOYEE LOGIC ---
+
+        // 7. SETUP REALTIME LISTENER FOR EMPLOYEES
+        function setupEmployeesListener() {
+            if (!employeesCollectionRef) return;
+
+            onSnapshot(employeesCollectionRef, (snapshot) => {
+                currentEmployees = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    currentEmployees.push({
+                        id: doc.id,
+                        name: data.name,
+                        position: data.position
+                    });
+                });
+                if (activeTabId === 'employees') {
+                    renderEmployees(currentEmployees);
+                }
+            }, (error) => {
+                console.error("Error listening to Firestore (Employees):", error);
+                showEmployeeMessage(`Error fetching employees: ${error.message}`, true);
+            });
+        }
+
+        // 8. ADD NEW EMPLOYEE
+        async function addEmployee(e) {
+            e.preventDefault();
+
+            if (!employeesCollectionRef) {
+                showEmployeeMessage("User is not signed in or app not fully initialized.", true);
+                return;
+            }
+
+            const nameInput = document.getElementById('employee-name');
+            const positionInput = document.getElementById('employee-position');
+
+            const newEmployee = {
+                name: nameInput.value.trim(), 
+                position: positionInput.value.trim(), 
+            };
+
+            if (newEmployee.name === "" || newEmployee.position === "") {
+                showEmployeeMessage("Please enter both the employee's name and position.", true);
+                return;
+            }
+
+            try {
+                await addDoc(employeesCollectionRef, newEmployee);
+                showEmployeeMessage(`Employee "${newEmployee.name}" added successfully!`); 
+                logActivity("Employee Added", `New employee **${newEmployee.name}** added to the roster as ${newEmployee.position}.`);
+                e.target.reset();
+            } catch (error) {
+                console.error("Error adding employee:", error);
+                showEmployeeMessage(`Failed to add employee: ${error.message}`, true);
+            }
+        }
+
+        // 9. RENDER EMPLOYEES LIST
+        function renderEmployees(employees) {
+            const container = document.getElementById('employees-container');
+            container.innerHTML = '';
+            
+            if (employees.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 p-4">No employees added yet. Use the form to the left to add a team member.</p>';
+            }
+
+            employees.sort((a, b) => a.name.localeCompare(b.name));
+
+            employees.forEach(employee => {
+                const employeeElement = document.createElement('div');
+                employeeElement.className = `p-4 rounded-lg shadow-md flex items-center justify-between bg-employee-bg border border-cyan-200`;
+                employeeElement.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 flex-shrink-0">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        
+                        <div>
+                            <p class="text-lg font-semibold text-gray-800">${employee.name}</p>
+                            <p class="text-sm text-gray-600">${employee.position}</p>
+                        </div>
+                    </div>
+                    
+                    <button data-employee-id="${employee.id}" data-employee-name="${employee.name}" class="delete-employee-btn text-gray-400 hover:text-lost transition p-1 rounded-full hover:bg-red-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                `;
+                container.appendChild(employeeElement);
+            });
+            
+            document.querySelectorAll('.delete-employee-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const employeeId = e.currentTarget.getAttribute('data-employee-id');
+                    const employeeName = e.currentTarget.getAttribute('data-employee-name');
+                    deleteEmployee(employeeId, employeeName);
+                });
+            });
+        }
+
+        // 10. DELETE EMPLOYEE
+        async function deleteEmployee(employeeId, employeeName) {
+            if (!employeesCollectionRef || !employeeId) return;
+
+            if (!await showCustomConfirmation(`Are you sure you want to remove employee: "${employeeName}"?`)) {
+                return;
+            }
+
+            try {
+                const employeeRef = doc(db, employeesCollectionRef.path, employeeId);
+                await deleteDoc(employeeRef);
+                showEmployeeMessage(`Employee "${employeeName}" successfully removed.`, false);
+                logActivity("Employee Removed", `Removed employee **${employeeName}** from the roster.`);
+            } catch (error) {
+                console.error("Error removing employee:", error);
+                showEmployeeMessage(`Error removing employee: ${error.message}`, true);
+            }
+        }
+
+        // --- WHITEBOARD LOGIC ---
+        let canvas, ctx;
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentColor = '#10B981';
+        let currentLineWidth = 5;
+
+        function resizeCanvas() {
+            if (!canvas) {
+                canvas = document.getElementById('whiteboard-canvas');
+                ctx = canvas.getContext('2d');
+            }
+            const container = document.getElementById('canvas-container');
+            
+            if (container.clientWidth === 0 || container.clientHeight === 0) {
+                 return;
+            }
+            
+            const dataURL = canvas.toDataURL ? canvas.toDataURL() : null;
+
+            const oldWidth = canvas.width;
+            const oldHeight = canvas.height;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            if (dataURL) {
+                const img = new Image();
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, oldWidth, oldHeight, 0, 0, canvas.width, canvas.height);
+                };
+                img.src = dataURL;
+            }
+
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = currentLineWidth;
+            ctx.strokeStyle = currentColor;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            [lastX, lastY] = [x, y];
+        }
+
+        function startDrawing(e) {
+            e.preventDefault(); 
+            isDrawing = true;
+            
+            ctx.lineWidth = currentLineWidth;
+            ctx.strokeStyle = currentColor;
+
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            const rect = canvas.getBoundingClientRect();
+            [lastX, lastY] = [clientX - rect.left, clientY - rect.top];
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function clearCanvas() {
+            if (!canvas || !ctx) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            logActivity("Whiteboard Cleared", "The team whiteboard was cleared.");
+        }
+
+        function setupWhiteboardListeners() {
+            canvas = document.getElementById('whiteboard-canvas');
+            if (!canvas) return; 
+
+            ctx = canvas.getContext('2d');
+            
+            const colorPicker = document.getElementById('color-picker');
+            const lineWidthInput = document.getElementById('line-width');
+            const clearBtn = document.getElementById('clear-canvas-btn');
+
+            colorPicker.addEventListener('input', (e) => { currentColor = e.target.value; });
+            lineWidthInput.addEventListener('input', (e) => { currentLineWidth = parseInt(e.target.value); });
+            clearBtn.addEventListener('click', clearCanvas);
+
+            // Drawing listeners (Mouse)
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            // Drawing listeners (Touch)
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('touchcancel', stopDrawing);
+
+            // Resize listener for responsiveness
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    resizeCanvas();
+                }, 100);
+            });
+            
+            resizeCanvas();
+        }
+
+        // 11. SETUP EVENT LISTENERS
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFirebase();
+            
+            // --- NEW AUTH LISTENERS ---
+            document.getElementById('sign-in-btn').addEventListener('click', handleSignIn);
+            document.getElementById('sign-up-btn').addEventListener('click', handleSignUp);
+            document.getElementById('sign-out-btn').addEventListener('click', handleSignOut);
+            // Prevent the auth form from submitting normally (using the buttons' click handlers instead)
+            document.getElementById('auth-form').addEventListener('submit', (e) => e.preventDefault()); 
+
+            // --- EXISTING DASHBOARD LISTENERS ---
+            document.getElementById('deal-form').addEventListener('submit', addDeal);
+            document.getElementById('employee-form').addEventListener('submit', addEmployee);
+            document.getElementById('goal-form').addEventListener('submit', setMonthlyGoal); 
+
+            setupWhiteboardListeners();
+
+            // Setup new scrolling tab system
+            renderTabs();
+            
+            // Calendar navigation listeners
+            document.getElementById('prev-month-btn').addEventListener('click', () => changeMonth(-1));
+            document.getElementById('next-month-btn').addEventListener('click', () => changeMonth(1));
+        });
+    </script>
+</body>
+</html>
